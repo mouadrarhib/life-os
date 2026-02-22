@@ -696,6 +696,90 @@ select {
   background: #f8fafc;
 }
 
+.finance-layout {
+  padding-bottom: 3rem;
+}
+
+.finance-stats-grid {
+  width: min(100%, 1080px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finance-grid {
+  width: min(100%, 1080px);
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.finance-sidebar,
+.finance-main {
+  width: 100%;
+}
+
+.finance-sidebar {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.finance-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.account-fields-row {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+}
+
+.account-fields-row > label {
+  min-width: 0;
+}
+
+.currency-input {
+  width: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.transactions-list {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.transaction-item {
+  border: 1px solid rgba(15, 23, 42, 0.11);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.72rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.transaction-right {
+  display: grid;
+  justify-items: end;
+  gap: 0.3rem;
+}
+
+.transaction-amount {
+  margin: 0;
+  font-weight: 800;
+}
+
+.transaction-amount.income {
+  color: #0f766e;
+}
+
+.transaction-amount.expense {
+  color: #b91c1c;
+}
+
 .fitness-actions-grid {
   margin-top: 0.8rem;
   display: grid;
@@ -969,6 +1053,26 @@ select {
 
   .goal-row {
     grid-template-columns: 1fr;
+  }
+
+  .finance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-row {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transaction-item {
+    display: grid;
+  }
+
+  .transaction-right {
+    justify-items: start;
   }
 
   .goals-stats-grid {

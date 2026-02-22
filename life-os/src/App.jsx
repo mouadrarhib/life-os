@@ -9,6 +9,7 @@ import { ProfileSetupPage } from './pages/ProfileSetupPage.jsx'
 import { TasksPage } from './pages/TasksPage.jsx'
 import { FitnessPage } from './pages/FitnessPage.jsx'
 import { GoalsPage } from './pages/GoalsPage.jsx'
+import { FinancePage } from './pages/FinancePage.jsx'
 
 function ProtectedRoute() {
   const { user, loading } = useAuth()
@@ -114,6 +115,7 @@ export default function App() {
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/fitness" element={<FitnessPage />} />
           <Route path="/goals" element={<GoalsPage />} />
+          <Route path="/finance" element={<FinancePage />} />
         </Route>
       </Route>
 

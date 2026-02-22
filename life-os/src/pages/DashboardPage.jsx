@@ -84,7 +84,9 @@ export function DashboardPage() {
         <Link className="module-card link-card" to="/goals">
           Open goals planner
         </Link>
-        <article className="module-card">Finance module coming next</article>
+        <Link className="module-card link-card" to="/finance">
+          Open finance tracker
+        </Link>
         <Link className="module-card link-card" to="/fitness">
           Open fitness tracker
         </Link>
