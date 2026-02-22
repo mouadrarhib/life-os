@@ -524,6 +524,178 @@ select {
   width: 260px;
 }
 
+.goals-layout {
+  padding-bottom: 3rem;
+}
+
+.goals-stats-grid {
+  width: min(100%, 980px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.goals-panel {
+  width: min(100%, 980px);
+}
+
+.create-goal-form {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+  padding-bottom: 1rem;
+}
+
+.goal-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.goals-list {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.goal-card {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+  background: #fff;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.goal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.goal-progress-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.goal-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.goal-progress-fill {
+  height: 100%;
+  background: linear-gradient(120deg, #0f766e, #14b8a6);
+}
+
+.milestone-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.milestone-item {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.6rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.milestone-item.overdue {
+  border-color: #fca5a5;
+  background: #fff7f7;
+}
+
+.overdue-badge {
+  margin: 0.35rem 0 0;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #b91c1c;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+.milestone-check {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 10px;
+  padding: 0.35rem 0.55rem;
+  font-weight: 700;
+}
+
+.milestone-check.done {
+  border-color: #14b8a6;
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.milestone-title {
+  font-size: 0.92rem;
+}
+
+.milestone-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.ghost-order-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 10px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.milestone-form {
+  display: grid;
+  grid-template-columns: 1fr 180px auto;
+  gap: 0.55rem;
+}
+
+.goal-widget {
+  width: min(100%, 900px);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.goal-widget-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.goal-widget-stats {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.goal-widget-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.goal-widget-item {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 0.55rem;
+  background: #f8fafc;
+}
+
 .fitness-actions-grid {
   margin-top: 0.8rem;
   display: grid;
@@ -795,6 +967,14 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .goal-row {
+    grid-template-columns: 1fr;
+  }
+
+  .goals-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .advanced-filters {
     grid-template-columns: 1fr;
     gap: 0.65rem;
@@ -949,6 +1129,34 @@ select {
   .workout-search {
     width: 100%;
     height: 44px;
+  }
+
+  .goal-head {
+    display: grid;
+  }
+
+  .milestone-item {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .milestone-actions {
+    flex-wrap: wrap;
+  }
+
+  .ghost-order-btn,
+  .milestone-actions .danger-btn {
+    min-height: 40px;
+  }
+
+  .milestone-form {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-widget-head {
+    align-items: flex-start;
+    gap: 0.45rem;
+    flex-direction: column;
   }
 
   .fitness-layout {

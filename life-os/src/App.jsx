@@ -8,6 +8,7 @@ import { DashboardPage } from './pages/DashboardPage.jsx'
 import { ProfileSetupPage } from './pages/ProfileSetupPage.jsx'
 import { TasksPage } from './pages/TasksPage.jsx'
 import { FitnessPage } from './pages/FitnessPage.jsx'
+import { GoalsPage } from './pages/GoalsPage.jsx'
 
 function ProtectedRoute() {
   const { user, loading } = useAuth()
@@ -112,6 +113,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/fitness" element={<FitnessPage />} />
+          <Route path="/goals" element={<GoalsPage />} />
         </Route>
       </Route>
 
