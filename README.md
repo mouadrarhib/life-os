@@ -1,8 +1,8 @@
 # Life OS
 
-Life OS is a personal operating system built with React + Supabase to manage daily execution across tasks, goals, fitness, finance, and client/deal workflows.
+Life OS is a full-stack productivity platform built to run your daily execution in one place. It combines personal operations (tasks, goals, fitness, finance) with lightweight CRM (clients, contacts, deals) and wraps everything in analytics + gamification so progress is measurable, visible, and motivating.
 
-It combines productivity tracking with analytics and gamification so progress feels like leveling up in a game.
+At a high level, the app is a React single-page application powered by Supabase for authentication, storage, and business data. Every module is connected: for example, moving a deal to `won` can automatically generate income in the finance tracker through database triggers.
 
 ## Screenshots
 
@@ -14,23 +14,90 @@ It combines productivity tracking with analytics and gamification so progress fe
 
 ![Life OS Mobile](./life-os/docs/screenshots/mobile-auth.png)
 
-## Core Modules
+## What The App Includes
 
-- Tasks board with filters, due dates, and priorities
-- Goals planner with milestones, ordering, and progress visuals
-- Fitness tracker with workouts, exercises, sets, and progression charts
-- Finance tracker with accounts, categories, transactions, monthly analytics
-- CRM workspace with client directory, client detail, and deals Kanban
-- Command Center dashboard with live widgets (agenda, training, spending)
-- Gamification layer with XP, levels, streaks, and level-up modal
+### Command Center Dashboard
+
+- Live widgets for today's agenda, daily training, and 7-day spending
+- User progression indicators (XP, level, streak)
+- Quick links into every operational module
+
+### Tasks System
+
+- Kanban-style flow (`todo`, `doing`, `done`)
+- Priority and due-date management with rich filtering
+- XP rewards when tasks are completed (priority-weighted)
+
+### Goals System
+
+- Goal creation by horizon and target date
+- Milestone tracking with ordering + completion toggles
+- Circular and linear progress indicators derived from milestone completion
+
+### Fitness System
+
+- Workout sessions with exercise library and set logging
+- Per-set fields: reps, weight, RPE, warmup
+- Progression analytics chart for key exercise weight trends over time
+
+### Finance System
+
+- Accounts, categories, and transaction ledger
+- Filtered transaction views (type/account/month)
+- Monthly income vs expense chart + net-worth style ticker
+
+### CRM (Clients + Deals)
+
+- Client directory and client detail views
+- Client fields include name, phone, city, industry, status, notes
+- Contacts and deal notes linked to each client
+- Deals pipeline with drag-and-drop Kanban stages
+- Mobile quick-add modals for lead/deal entry
+- Won-deal revenue auto-synced into finance transactions
+
+### Gamification Layer
+
+- XP total and level tracking per user
+- Daily streak calculation from completed activity (tasks/workouts/transactions)
+- Global level-up modal when XP crosses threshold
+
+## Visualization Coverage
+
+- Fitness progression: line chart of weight progression for top exercises
+- Finance analytics: bar chart for monthly income vs expenses
+- Goal analytics: dynamic circular completion indicators
+- Dashboard snapshots: live operational widgets (agenda/training/spending)
+
+## Product Behavior
+
+- New users are routed through profile onboarding before app access
+- All key tables use row-level security (RLS) for per-user data isolation
+- Deal stage changes can trigger finance side effects (won deal -> income transaction)
+- Dashboard and analytics values are computed from live Supabase data
 
 ## Tech Stack
 
-- Frontend: React 19, React Router 7, Vite
-- Backend: Supabase (Postgres, Auth, RLS)
-- Drag and drop: dnd-kit
-- Charts: Recharts
-- Styling: custom CSS
+- Frontend runtime: React 19 + React DOM
+- Routing: React Router 7
+- Build tooling: Vite 7 + ESLint 9
+- Backend platform: Supabase
+  - Auth for session management
+  - Postgres for application data
+  - RLS policies for secure multi-user access
+- UI interactions: dnd-kit (drag/drop Kanban)
+- Data visualization: Recharts
+- Validation/forms libs present: zod, react-hook-form
+- Styling approach: custom CSS with responsive breakpoints and module-specific layouts
+
+## Repository Structure
+
+- `life-os/` - React application source
+  - `src/pages/` module pages (Tasks, Goals, Fitness, Finance, Clients, Deals)
+  - `src/context/` auth/session context
+  - `src/lib/` Supabase and gamification helpers
+- `supabase/` - SQL migration scripts and schema reference
+- `README.md` - root documentation
+- `vercel.json` - SPA deploy rewrite/config
 
 ## Local Setup
 
@@ -76,33 +143,6 @@ Run these scripts in order from the root `supabase/` folder:
 11. `011_deals_won_to_finance.sql`
 12. `012_clients_phone_city.sql`
 13. `013_deals_won_sync_fix.sql`
-
-## Milestones Delivered
-
-### Milestone 1: CRM Foundation
-
-- Client directory and client detail pages
-- Deals pipeline with drag-and-drop stages
-- Mobile quick-add modals for leads and deals
-
-### Milestone 2: Progress and Analytics
-
-- Fitness line chart for weight progression
-- Finance monthly income vs expense chart
-- Net worth ticker and goal completion circles
-
-### Milestone 3: Command Center Dashboard
-
-- Today's agenda widget (todo tasks due today)
-- Daily training widget (today's workout or plan CTA)
-- Finance snapshot widget (7-day spending)
-
-### Milestone 4: Gamification and Polish
-
-- XP gain when completing tasks (priority-weighted)
-- Level system with thresholds and global level-up modal
-- Consecutive activity streak display on dashboard
-- Mobile polish across widgets, modals, and charts
 
 ## Deployment
 
