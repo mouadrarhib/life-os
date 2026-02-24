@@ -8,11 +8,11 @@ It combines productivity tracking with analytics and gamification so progress fe
 
 ### Desktop View
 
-![Life OS Desktop](./docs/screenshots/desktop-auth.png)
+![Life OS Desktop](./life-os/docs/screenshots/desktop-auth.png)
 
 ### Mobile View
 
-![Life OS Mobile](./docs/screenshots/mobile-auth.png)
+![Life OS Mobile](./life-os/docs/screenshots/mobile-auth.png)
 
 ## Core Modules
 
@@ -37,10 +37,10 @@ It combines productivity tracking with analytics and gamification so progress fe
 1. Install dependencies:
 
 ```bash
-npm install
+npm install --prefix life-os
 ```
 
-2. Configure env variables in `.env`:
+2. Configure env variables in `life-os/.env`:
 
 ```env
 VITE_SUPABASE_URL=...
@@ -50,18 +50,18 @@ VITE_SUPABASE_PUBLISHABLE_KEY=...
 3. Start development server:
 
 ```bash
-npm run dev
+npm run dev --prefix life-os
 ```
 
 4. Build for production:
 
 ```bash
-npm run build
+npm run build --prefix life-os
 ```
 
 ## Supabase SQL Migration Order
 
-Run these scripts in order from the repository root `supabase/` folder:
+Run these scripts in order from the root `supabase/` folder:
 
 1. `001_auth_profile_setup.sql`
 2. `002_tasks_rls.sql`
@@ -77,7 +77,7 @@ Run these scripts in order from the repository root `supabase/` folder:
 12. `012_clients_phone_city.sql`
 13. `013_deals_won_sync_fix.sql`
 
-## Notable Features by Milestone
+## Milestones Delivered
 
 ### Milestone 1: CRM Foundation
 
@@ -85,7 +85,7 @@ Run these scripts in order from the repository root `supabase/` folder:
 - Deals pipeline with drag-and-drop stages
 - Mobile quick-add modals for leads and deals
 
-### Milestone 2: Progress & Analytics
+### Milestone 2: Progress and Analytics
 
 - Fitness line chart for weight progression
 - Finance monthly income vs expense chart
@@ -97,7 +97,7 @@ Run these scripts in order from the repository root `supabase/` folder:
 - Daily training widget (today's workout or plan CTA)
 - Finance snapshot widget (7-day spending)
 
-### Milestone 4: Gamification & Polish
+### Milestone 4: Gamification and Polish
 
 - XP gain when completing tasks (priority-weighted)
 - Level system with thresholds and global level-up modal
