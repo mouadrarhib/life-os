@@ -33,6 +33,12 @@ function sortMilestones(items) {
   })
 }
 
+function ringStyle(percent) {
+  return {
+    background: `conic-gradient(#0f766e ${percent}%, #e2e8f0 ${percent}% 100%)`,
+  }
+}
+
 export function GoalsPage() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
@@ -411,8 +417,13 @@ export function GoalsPage() {
                   </span>
                   <span className="muted small-text">{percent}%</span>
                 </div>
-                <div className="goal-progress-track">
-                  <div className="goal-progress-fill" style={{ width: `${percent}%` }} />
+                <div className="goal-progress-visual">
+                  <div className="goal-progress-ring" style={ringStyle(percent)}>
+                    <div className="goal-progress-ring-center">{percent}%</div>
+                  </div>
+                  <div className="goal-progress-track">
+                    <div className="goal-progress-fill" style={{ width: `${percent}%` }} />
+                  </div>
                 </div>
 
                 <div className="milestone-list">

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
 
@@ -130,6 +131,47 @@ export function FinancePage() {
     return values.sort((a, b) => b.localeCompare(a))
   }, [transactions])
 
+  const monthlyChartData = useMemo(() => {
+    const monthly = {}
+
+    transactions.forEach((item) => {
+      const month = (item.date || '').slice(0, 7)
+      if (!month) return
+      if (!monthly[month]) {
+        monthly[month] = { month, income: 0, expense: 0 }
+      }
+
+      const amountValue = Number(item.amount || 0)
+      if (item.categories?.type === 'income') {
+        monthly[month].income += amountValue
+      } else {
+        monthly[month].expense += amountValue
+      }
+    })
+
+    return Object.values(monthly)
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-12)
+      .map((row) => ({
+        ...row,
+        label: new Date(`${row.month}-01`).toLocaleDateString(undefined, {
+          month: 'short',
+          year: '2-digit',
+        }),
+      }))
+  }, [transactions])
+
+  const netWorth = useMemo(() => {
+    return accounts.reduce((sum, account) => {
+      const accountTransactions = transactions.filter((item) => item.accounts?.id === account.id)
+      const accountNet = accountTransactions.reduce((acc, item) => {
+        const amountValue = Number(item.amount || 0)
+        return item.categories?.type === 'income' ? acc + amountValue : acc - amountValue
+      }, 0)
+      return sum + accountNet
+    }, 0)
+  }, [accounts, transactions])
+
   const handleCreateAccount = async (event) => {
     event.preventDefault()
     if (!accountName.trim()) return
@@ -244,6 +286,35 @@ export function FinancePage() {
           <p className="muted small-text">Balance</p>
           <p className="stat-value">{formatMoney(summary.balance)}</p>
         </article>
+        <article className="stat-card">
+          <p className="muted small-text">Net worth ticker</p>
+          <p className="stat-value">{formatMoney(netWorth)}</p>
+        </article>
+      </section>
+
+      <section className="panel finance-chart-panel">
+        <div className="goal-widget-head">
+          <p className="eyebrow">Player Stats</p>
+          <p className="muted small-text">Monthly income vs expenses</p>
+        </div>
+
+        {monthlyChartData.length === 0 ? (
+          <p className="muted">Add transactions to unlock finance analytics.</p>
+        ) : (
+          <div className="chart-shell">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={monthlyChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                <XAxis dataKey="label" stroke="#475569" />
+                <YAxis stroke="#475569" />
+                <Tooltip formatter={(value) => formatMoney(value)} />
+                <Legend />
+                <Bar dataKey="income" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="expense" fill="#b91c1c" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </section>
 
       <section className="finance-grid">

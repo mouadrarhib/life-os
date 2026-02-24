@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
 
@@ -87,6 +97,9 @@ export function FitnessPage() {
   const [workoutSearch, setWorkoutSearch] = useState('')
   const [setDraftByEntry, setSetDraftByEntry] = useState({})
   const [activeComposer, setActiveComposer] = useState('library')
+  const [progressionData, setProgressionData] = useState([])
+  const [progressionExercises, setProgressionExercises] = useState([])
+  const [progressionLoading, setProgressionLoading] = useState(true)
 
   const libraryFormRef = useRef(null)
   const addSessionFormRef = useRef(null)
@@ -214,6 +227,63 @@ export function FitnessPage() {
     setWorkoutEntries(normalized)
   }
 
+  const loadProgressionData = async () => {
+    setProgressionLoading(true)
+
+    const { data, error } = await supabase
+      .from('workout_exercises')
+      .select('id, workout:workouts(workout_date), exercise:exercises(name), sets(weight_kg)')
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      setErrorMessage(error.message)
+      setProgressionData([])
+      setProgressionExercises([])
+      setProgressionLoading(false)
+      return
+    }
+
+    const rows = data || []
+    const countsByExercise = {}
+
+    rows.forEach((entry) => {
+      const name = entry.exercise?.name
+      const weightedSets = (entry.sets || []).filter((setItem) => Number(setItem.weight_kg) > 0)
+      if (!name || weightedSets.length === 0) return
+      countsByExercise[name] = (countsByExercise[name] || 0) + weightedSets.length
+    })
+
+    const topExercises = Object.entries(countsByExercise)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name]) => name)
+
+    const groupedByDate = {}
+    rows.forEach((entry) => {
+      const workoutDate = entry.workout?.workout_date
+      const exerciseName = entry.exercise?.name
+
+      if (!workoutDate || !exerciseName || !topExercises.includes(exerciseName)) return
+
+      const bestWeight = Math.max(...(entry.sets || []).map((setItem) => Number(setItem.weight_kg || 0)))
+      if (!Number.isFinite(bestWeight) || bestWeight <= 0) return
+
+      if (!groupedByDate[workoutDate]) {
+        groupedByDate[workoutDate] = { date: workoutDate }
+      }
+
+      groupedByDate[workoutDate][exerciseName] = Math.max(
+        Number(groupedByDate[workoutDate][exerciseName] || 0),
+        bestWeight,
+      )
+    })
+
+    const chartRows = Object.values(groupedByDate).sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    setProgressionExercises(topExercises)
+    setProgressionData(chartRows)
+    setProgressionLoading(false)
+  }
+
   useEffect(() => {
     let mounted = true
 
@@ -222,6 +292,7 @@ export function FitnessPage() {
       const nextWorkouts = await loadWorkouts()
       await loadExerciseLibrary()
       await loadExerciseOptions()
+      await loadProgressionData()
 
       if (!mounted) return
 
@@ -263,6 +334,7 @@ export function FitnessPage() {
     await loadWorkouts()
     setSelectedWorkoutId(workoutId)
     await loadWorkoutDetails(workoutId)
+    await loadProgressionData()
   }
 
   const handleDeleteWorkout = async (workoutId) => {
@@ -276,6 +348,7 @@ export function FitnessPage() {
     const nextId = nextWorkouts[0]?.id || null
     setSelectedWorkoutId(nextId)
     await loadWorkoutDetails(nextId)
+    await loadProgressionData()
   }
 
   const handleCreateExercise = async (event) => {
@@ -369,6 +442,7 @@ export function FitnessPage() {
 
     await loadWorkoutDetails(selectedWorkoutId)
     setSetDraftByEntry((prev) => ({ ...prev, [entry.id]: undefined }))
+    await loadProgressionData()
   }
 
   const handleDeleteSet = async (setId) => {
@@ -378,6 +452,7 @@ export function FitnessPage() {
       return
     }
     await loadWorkoutDetails(selectedWorkoutId)
+    await loadProgressionData()
   }
 
   const scrollToComposer = (target) => {
@@ -410,6 +485,51 @@ export function FitnessPage() {
       </section>
 
       {errorMessage ? <p className="message error">{errorMessage}</p> : null}
+
+      <section className="panel fitness-analytics-panel">
+        <div className="goal-widget-head">
+          <p className="eyebrow">Player Stats</p>
+          <p className="muted small-text">Top exercise weight progression over time</p>
+        </div>
+
+        {progressionLoading ? <p className="muted">Loading progression chart...</p> : null}
+
+        {!progressionLoading && progressionData.length === 0 ? (
+          <p className="muted">Log weighted sets to unlock your progression chart.</p>
+        ) : null}
+
+        {!progressionLoading && progressionData.length > 0 ? (
+          <div className="chart-shell">
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={progressionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                  stroke="#475569"
+                />
+                <YAxis unit=" kg" stroke="#475569" />
+                <Tooltip
+                  labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                  formatter={(value) => `${value} kg`}
+                />
+                <Legend />
+                {progressionExercises.map((exerciseName, index) => (
+                  <Line
+                    key={exerciseName}
+                    type="monotone"
+                    dataKey={exerciseName}
+                    stroke={['#0f766e', '#0284c7', '#c2410c'][index % 3]}
+                    strokeWidth={3}
+                    dot={{ r: 3 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : null}
+      </section>
 
       <section className="fitness-grid">
         <aside className="panel fitness-sidebar">

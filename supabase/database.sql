@@ -61,6 +61,8 @@ CREATE TABLE public.clients (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   name text NOT NULL,
+  phone text,
+  city text,
   industry text,
   status text DEFAULT 'lead'::text CHECK (status = ANY (ARRAY['lead'::text, 'active'::text, 'inactive'::text])),
   note text,

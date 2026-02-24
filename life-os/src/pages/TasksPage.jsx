@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { calculateTaskXp, getLevelFromXp } from '../lib/gamification.js'
 import { supabase } from '../lib/supabase.js'
 
 const STATUS_OPTIONS = ['todo', 'doing', 'done']
@@ -52,7 +53,7 @@ export function TasksPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('tasks')
-      .select('id, title, status, priority, due_at, created_at')
+      .select('id, title, status, priority, due_at, done_at, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
@@ -156,11 +157,59 @@ export function TasksPage() {
   }
 
   const handleStatusChange = async (taskId, nextStatus) => {
-    const { error } = await supabase.from('tasks').update({ status: nextStatus }).eq('id', taskId)
+    const targetTask = tasks.find((task) => task.id === taskId)
+    const isNewCompletion =
+      nextStatus === 'done' && targetTask?.status !== 'done' && !targetTask?.done_at
+
+    const updatePayload = { status: nextStatus }
+    if (isNewCompletion) {
+      updatePayload.done_at = new Date().toISOString()
+    }
+
+    const { error } = await supabase.from('tasks').update(updatePayload).eq('id', taskId)
     if (error) {
       setErrorMessage(error.message)
       return
     }
+
+    if (isNewCompletion && targetTask) {
+      const xpEarned = calculateTaskXp(targetTask.priority)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('xp_total, level')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (!profileError) {
+        const previousXp = Number(profileData?.xp_total || 0)
+        const previousLevel = Number(profileData?.level || getLevelFromXp(previousXp))
+        const nextXp = previousXp + xpEarned
+        const nextLevel = getLevelFromXp(nextXp)
+
+        const profilePayload = {
+          xp_total: nextXp,
+          level: nextLevel,
+        }
+
+        if (nextLevel > previousLevel) {
+          profilePayload.last_level_up_at = new Date().toISOString()
+        }
+
+        await supabase.from('profiles').update(profilePayload).eq('id', user.id)
+
+        if (nextLevel > previousLevel) {
+          window.dispatchEvent(
+            new CustomEvent('lifeos:levelup', {
+              detail: {
+                level: nextLevel,
+                xp: nextXp,
+              },
+            }),
+          )
+        }
+      }
+    }
+
     await loadTasks()
   }
 
