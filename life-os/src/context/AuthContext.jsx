@@ -12,7 +12,15 @@ export function AuthProvider({ children }) {
     let mounted = true
 
     const loadSession = async () => {
-      const { data } = await supabase.auth.getSession()
+      const { data, error } = await supabase.auth.getSession()
+
+      if (error) {
+        const message = String(error.message || '')
+        if (message.includes('Invalid Refresh Token')) {
+          await supabase.auth.signOut({ scope: 'local' })
+        }
+      }
+
       if (!mounted) return
       setSession(data.session)
       setUser(data.session?.user ?? null)

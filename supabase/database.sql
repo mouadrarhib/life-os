@@ -166,9 +166,26 @@ CREATE TABLE public.tasks (
   status text NOT NULL DEFAULT 'todo'::text CHECK (status = ANY (ARRAY['todo'::text, 'doing'::text, 'done'::text])),
   priority integer DEFAULT 0,
   due_at timestamp with time zone,
+  done_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
   CONSTRAINT tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.task_focus_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  task_id uuid NOT NULL,
+  mode text NOT NULL CHECK (mode = ANY (ARRAY['pomodoro'::text, 'manual'::text])),
+  status text NOT NULL DEFAULT 'running'::text CHECK (status = ANY (ARRAY['running'::text, 'paused'::text, 'completed'::text, 'cancelled'::text])),
+  is_break boolean NOT NULL DEFAULT false,
+  planned_minutes integer,
+  actual_minutes integer,
+  started_at timestamp with time zone NOT NULL DEFAULT now(),
+  ended_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT task_focus_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT task_focus_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT task_focus_sessions_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id)
 );
 CREATE TABLE public.transactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -204,4 +221,14 @@ CREATE TABLE public.workouts (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT workouts_pkey PRIMARY KEY (id),
   CONSTRAINT workouts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.user_focus_settings (
+  user_id uuid NOT NULL,
+  focus_minutes integer NOT NULL DEFAULT 25,
+  break_minutes integer NOT NULL DEFAULT 5,
+  auto_start_break boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_focus_settings_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_focus_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );

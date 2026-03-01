@@ -14,6 +14,7 @@ import { FinancePage } from './pages/FinancePage.jsx'
 import { ClientDirectoryPage } from './pages/ClientDirectoryPage.jsx'
 import { ClientDetailPage } from './pages/ClientDetailPage.jsx'
 import { DealsBoardPage } from './pages/DealsBoardPage.jsx'
+import { FocusHistoryPage } from './pages/FocusHistoryPage.jsx'
 
 function ProtectedRoute() {
   const { user, loading } = useAuth()
@@ -134,6 +135,7 @@ export default function App() {
             <Route path="/fitness" element={<FitnessPage />} />
             <Route path="/goals" element={<GoalsPage />} />
             <Route path="/finance" element={<FinancePage />} />
+            <Route path="/focus-history" element={<FocusHistoryPage />} />
             <Route path="/clients" element={<ClientDirectoryPage />} />
             <Route path="/clients/:clientId" element={<ClientDetailPage />} />
             <Route path="/deals" element={<DealsBoardPage />} />

@@ -40,6 +40,8 @@ export function DashboardPage() {
   const [todayWorkout, setTodayWorkout] = useState(null)
   const [todayWorkoutExercises, setTodayWorkoutExercises] = useState([])
   const [sevenDaySpending, setSevenDaySpending] = useState(0)
+  const [focusTodayMinutes, setFocusTodayMinutes] = useState(0)
+  const [focusTodayBlocks, setFocusTodayBlocks] = useState(0)
   const [streakDays, setStreakDays] = useState(0)
   const [xpTotal, setXpTotal] = useState(0)
   const [level, setLevel] = useState(1)
@@ -58,6 +60,7 @@ export function DashboardPage() {
       tomorrowStart.setDate(tomorrowStart.getDate() + 1)
       const sevenDaysAgo = new Date(todayStart)
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+      const todayStartIso = todayStart.toISOString()
 
       const [
         profileResult,
@@ -161,6 +164,28 @@ export function DashboardPage() {
         .filter((item) => item.categories?.type === 'expense')
         .reduce((sum, item) => sum + Number(item.amount || 0), 0)
       setSevenDaySpending(expenseTotal)
+
+      const { data: focusTodayData, error: focusTodayError } = await supabase
+        .from('task_focus_sessions')
+        .select('actual_minutes')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .eq('is_break', false)
+        .gte('ended_at', todayStartIso)
+
+      if (focusTodayError && focusTodayError.code !== '42P01') {
+        setErrorMessage(focusTodayError.message)
+      }
+
+      if (focusTodayError?.code === '42P01') {
+        setFocusTodayMinutes(0)
+        setFocusTodayBlocks(0)
+      } else {
+        const rows = focusTodayData || []
+        const minutes = rows.reduce((sum, item) => sum + Number(item.actual_minutes || 0), 0)
+        setFocusTodayMinutes(minutes)
+        setFocusTodayBlocks(rows.length)
+      }
 
       const activityDates = [
         ...(allTasks || []).map((task) => (task.done_at ? toLocalDateString(new Date(task.done_at)) : null)),
@@ -287,6 +312,21 @@ export function DashboardPage() {
                 Goals planner
               </Link>
             </div>
+          </article>
+
+          <article className="panel command-widget">
+            <div className="goal-widget-head">
+              <p className="eyebrow">Focus Metrics</p>
+              <Link to="/tasks" className="ghost-link">
+                Open timer
+              </Link>
+            </div>
+            <p className="stat-value">{focusTodayMinutes}m</p>
+            <p className="muted small-text">Deep focus logged today</p>
+            <p className="muted small-text">Completed blocks: {focusTodayBlocks}</p>
+            <Link to="/focus-history" className="ghost-link">
+              Session history
+            </Link>
           </article>
         </section>
       ) : null}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { ensureNotificationPermission, notifyFocusEvent, playFocusChime } from '../lib/focusNotifications.js'
 import { calculateTaskXp, getLevelFromXp } from '../lib/gamification.js'
 import { supabase } from '../lib/supabase.js'
 
@@ -22,6 +23,11 @@ const DUE_FILTER_LABELS = {
   'no-date': 'No due date',
 }
 
+const TIMER_MODES = {
+  pomodoro: 'pomodoro',
+  manual: 'manual',
+}
+
 function toStartOfDay(input) {
   const date = new Date(input)
   date.setHours(0, 0, 0, 0)
@@ -31,6 +37,25 @@ function toStartOfDay(input) {
 function formatDueDate(dateValue) {
   if (!dateValue) return 'No due date'
   return new Date(dateValue).toLocaleDateString()
+}
+
+function formatDuration(totalSeconds) {
+  const safeSeconds = Math.max(0, Number(totalSeconds || 0))
+  const hours = Math.floor(safeSeconds / 3600)
+  const minutes = Math.floor((safeSeconds % 3600) / 60)
+  const seconds = safeSeconds % 60
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function getTodayStartIso() {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  return start.toISOString()
 }
 
 export function TasksPage() {
@@ -47,6 +72,16 @@ export function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [dueFilter, setDueFilter] = useState('all')
   const [sortBy, setSortBy] = useState('created_desc')
+  const [focusMode, setFocusMode] = useState(TIMER_MODES.pomodoro)
+  const [focusMinutes, setFocusMinutes] = useState(25)
+  const [breakMinutes, setBreakMinutes] = useState(5)
+  const [focusFeatureReady, setFocusFeatureReady] = useState(true)
+  const [notificationPermission, setNotificationPermission] = useState('default')
+  const [timerAlertedSessionId, setTimerAlertedSessionId] = useState(null)
+  const [activeSession, setActiveSession] = useState(null)
+  const [focusStats, setFocusStats] = useState({ minutesToday: 0, blocksToday: 0 })
+  const [focusByTaskId, setFocusByTaskId] = useState({})
+  const [nowMs, setNowMs] = useState(Date.now())
   const [errorMessage, setErrorMessage] = useState('')
 
   const loadTasks = async () => {
@@ -71,7 +106,76 @@ export function TasksPage() {
 
   useEffect(() => {
     loadTasks()
+    loadFocusData()
   }, [user.id])
+
+  useEffect(() => {
+    if (!activeSession || activeSession.status !== 'running') return undefined
+
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [activeSession])
+
+  const loadFocusData = async () => {
+    const [activeResult, completedTodayResult, completedAllResult] = await Promise.all([
+      supabase
+        .from('task_focus_sessions')
+        .select('id, user_id, task_id, mode, status, is_break, planned_minutes, actual_minutes, started_at')
+        .eq('user_id', user.id)
+        .in('status', ['running', 'paused'])
+        .order('created_at', { ascending: false })
+        .limit(1),
+      supabase
+        .from('task_focus_sessions')
+        .select('id, actual_minutes, is_break')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .eq('is_break', false)
+        .gte('ended_at', getTodayStartIso()),
+      supabase
+        .from('task_focus_sessions')
+        .select('task_id, actual_minutes, is_break')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .eq('is_break', false),
+    ])
+
+    const firstError = [activeResult, completedTodayResult, completedAllResult].find((result) => result.error)
+    if (firstError) {
+      if (firstError.error.code === '42P01') {
+        setFocusFeatureReady(false)
+        setActiveSession(null)
+        setFocusStats({ minutesToday: 0, blocksToday: 0 })
+        setFocusByTaskId({})
+        return
+      }
+
+      setErrorMessage(firstError.error.message)
+      return
+    }
+
+    setFocusFeatureReady(true)
+    setActiveSession((activeResult.data || [])[0] || null)
+
+    const completedBlocks = completedTodayResult.data || []
+    const minutesToday = completedBlocks.reduce((sum, item) => sum + Number(item.actual_minutes || 0), 0)
+    setFocusStats({
+      minutesToday,
+      blocksToday: completedBlocks.length,
+    })
+
+    const totals = {}
+    ;(completedAllResult.data || []).forEach((item) => {
+      if (!item.task_id) return
+      totals[item.task_id] = (totals[item.task_id] || 0) + Number(item.actual_minutes || 0)
+    })
+    setFocusByTaskId(totals)
+  }
 
   const filteredTasks = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
@@ -127,6 +231,41 @@ export function TasksPage() {
       return acc
     }, {})
   }, [filteredTasks])
+
+  const activeTask = useMemo(() => {
+    if (!activeSession?.task_id) return null
+    return tasks.find((task) => task.id === activeSession.task_id) || null
+  }, [activeSession, tasks])
+
+  const activeElapsedSeconds = useMemo(() => {
+    if (!activeSession?.started_at) return 0
+    const baselineSeconds = Number(activeSession.actual_minutes || 0) * 60
+    if (activeSession.status === 'paused') {
+      return baselineSeconds
+    }
+    return baselineSeconds + Math.max(0, Math.floor((nowMs - new Date(activeSession.started_at).getTime()) / 1000))
+  }, [activeSession, nowMs])
+
+  const activeRemainingSeconds = useMemo(() => {
+    if (!activeSession?.planned_minutes) return null
+    return Math.max(0, Number(activeSession.planned_minutes) * 60 - activeElapsedSeconds)
+  }, [activeElapsedSeconds, activeSession])
+
+  useEffect(() => {
+    if (!activeSession || activeSession.status !== 'running') return
+    if (activeRemainingSeconds === null) return
+    if (activeRemainingSeconds > 0) return
+    if (timerAlertedSessionId === activeSession.id) return
+
+    setTimerAlertedSessionId(activeSession.id)
+    playFocusChime()
+    notifyFocusEvent(
+      activeSession.is_break ? 'Break complete' : 'Focus block complete',
+      activeSession.is_break
+        ? 'Great. Time to get back to work.'
+        : 'Your timer reached zero. Complete block to log productivity.',
+    )
+  }, [activeRemainingSeconds, activeSession, timerAlertedSessionId])
 
   const handleCreateTask = async (event) => {
     event.preventDefault()
@@ -213,6 +352,206 @@ export function TasksPage() {
     await loadTasks()
   }
 
+  const awardFocusXp = async (actualMinutes, taskPriority) => {
+    const baseXp = Math.max(4, Math.round((Number(actualMinutes || 0) / 25) * 8))
+    const priorityBonus = Math.max(0, Math.min(5, Number(taskPriority || 0)))
+    const xpEarned = baseXp + priorityBonus
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('xp_total, level')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profileError) return
+
+    const previousXp = Number(profileData?.xp_total || 0)
+    const previousLevel = Number(profileData?.level || getLevelFromXp(previousXp))
+    const nextXp = previousXp + xpEarned
+    const nextLevel = getLevelFromXp(nextXp)
+
+    const payload = {
+      xp_total: nextXp,
+      level: nextLevel,
+    }
+
+    if (nextLevel > previousLevel) {
+      payload.last_level_up_at = new Date().toISOString()
+    }
+
+    await supabase.from('profiles').update(payload).eq('id', user.id)
+
+    if (nextLevel > previousLevel) {
+      window.dispatchEvent(
+        new CustomEvent('lifeos:levelup', {
+          detail: {
+            level: nextLevel,
+            xp: nextXp,
+          },
+        }),
+      )
+    }
+  }
+
+  const handleStartFocus = async (taskId) => {
+    if (!focusFeatureReady) {
+      setErrorMessage('Run SQL migration 014_task_focus.sql to enable timer tracking.')
+      return
+    }
+
+    if (activeSession) {
+      setErrorMessage('Finish or cancel the current timer before starting another one.')
+      return
+    }
+
+    const payload = {
+      user_id: user.id,
+      task_id: taskId,
+      mode: focusMode,
+      status: 'running',
+      is_break: false,
+      planned_minutes: focusMode === TIMER_MODES.pomodoro ? Number(focusMinutes) : null,
+      started_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await supabase
+      .from('task_focus_sessions')
+      .insert(payload)
+      .select('id, user_id, task_id, mode, status, is_break, planned_minutes, started_at')
+      .single()
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setErrorMessage('')
+    const permission = await ensureNotificationPermission()
+    setNotificationPermission(permission)
+    setActiveSession(data)
+    setNowMs(Date.now())
+    setTimerAlertedSessionId(null)
+  }
+
+  const handleCancelSession = async () => {
+    if (!activeSession) return
+
+    const { error } = await supabase
+      .from('task_focus_sessions')
+      .update({
+        status: 'cancelled',
+        ended_at: new Date().toISOString(),
+      })
+      .eq('id', activeSession.id)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setActiveSession(null)
+    await loadFocusData()
+  }
+
+  const handlePauseSession = async () => {
+    if (!activeSession || activeSession.status !== 'running') return
+
+    const elapsedMinutes = Math.max(1, Math.round(activeElapsedSeconds / 60))
+    const { error } = await supabase
+      .from('task_focus_sessions')
+      .update({
+        status: 'paused',
+        actual_minutes: elapsedMinutes,
+      })
+      .eq('id', activeSession.id)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setActiveSession((prev) => (prev ? { ...prev, status: 'paused', actual_minutes: elapsedMinutes } : prev))
+  }
+
+  const handleResumeSession = async () => {
+    if (!activeSession || activeSession.status !== 'paused') return
+
+    const { error } = await supabase
+      .from('task_focus_sessions')
+      .update({
+        status: 'running',
+        started_at: new Date().toISOString(),
+      })
+      .eq('id', activeSession.id)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    setActiveSession((prev) => (prev ? { ...prev, status: 'running', started_at: new Date().toISOString() } : prev))
+    setNowMs(Date.now())
+  }
+
+  const handleCompleteSession = async () => {
+    if (!activeSession) return
+
+    const endedAtIso = new Date().toISOString()
+    const minutes = Math.max(1, Math.round(activeElapsedSeconds / 60))
+
+    const { error } = await supabase
+      .from('task_focus_sessions')
+      .update({
+        status: 'completed',
+        ended_at: endedAtIso,
+        actual_minutes: minutes,
+      })
+      .eq('id', activeSession.id)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    const finishedSession = activeSession
+    setActiveSession(null)
+
+    if (!finishedSession.is_break) {
+      const linkedTask = tasks.find((task) => task.id === finishedSession.task_id)
+      await awardFocusXp(minutes, linkedTask?.priority)
+
+      if (finishedSession.mode === TIMER_MODES.pomodoro && Number(breakMinutes) > 0) {
+        const { data: breakSession, error: breakError } = await supabase
+          .from('task_focus_sessions')
+          .insert({
+            user_id: user.id,
+            task_id: finishedSession.task_id,
+            mode: TIMER_MODES.pomodoro,
+            status: 'running',
+            is_break: true,
+            planned_minutes: Number(breakMinutes),
+            started_at: new Date().toISOString(),
+          })
+          .select('id, user_id, task_id, mode, status, is_break, planned_minutes, started_at')
+          .single()
+
+        if (breakError) {
+          setErrorMessage(breakError.message)
+        } else {
+          playFocusChime()
+          notifyFocusEvent('Break started', `Take ${breakMinutes} minutes and recharge.`)
+          setActiveSession(breakSession)
+          setTimerAlertedSessionId(null)
+        }
+      }
+    } else {
+      playFocusChime()
+      notifyFocusEvent('Break complete', 'Ready for your next focus block.')
+    }
+
+    await loadFocusData()
+  }
+
   const handleDeleteTask = async (taskId) => {
     const { error } = await supabase.from('tasks').delete().eq('id', taskId)
     if (error) {
@@ -246,7 +585,7 @@ export function TasksPage() {
         </div>
       </section>
 
-      <section className="stats-grid">
+      <section className="stats-grid tasks-stats-grid">
         <article className="stat-card">
           <p className="muted small-text">Total</p>
           <p className="stat-value">{stats.total}</p>
@@ -263,9 +602,104 @@ export function TasksPage() {
           <p className="muted small-text">Done</p>
           <p className="stat-value">{stats.done}</p>
         </article>
+        <article className="stat-card">
+          <p className="muted small-text">Focus Today</p>
+          <p className="stat-value">{focusStats.minutesToday}m</p>
+        </article>
+        <article className="stat-card">
+          <p className="muted small-text">Completed Blocks</p>
+          <p className="stat-value">{focusStats.blocksToday}</p>
+        </article>
       </section>
 
       <section className="panel tasks-panel">
+        {focusFeatureReady ? (
+          <section className="focus-control-card">
+            <div className="focus-control-head">
+              <p className="eyebrow">Focus Timer</p>
+              <p className="muted small-text">Notifications: {notificationPermission}</p>
+              {activeSession ? (
+                <p className="muted small-text">
+                  {activeSession.is_break ? 'Break' : 'Focus'} {activeSession.status} on{' '}
+                  {activeTask?.title || 'Selected task'}
+                </p>
+              ) : (
+                <p className="muted small-text">No active timer</p>
+              )}
+            </div>
+
+            <div className="focus-mode-row">
+              <label>
+                Mode
+                <select value={focusMode} onChange={(event) => setFocusMode(event.target.value)}>
+                  <option value={TIMER_MODES.pomodoro}>Pomodoro</option>
+                  <option value={TIMER_MODES.manual}>Manual stopwatch</option>
+                </select>
+              </label>
+
+              <label>
+                Focus minutes
+                <input
+                  type="number"
+                  min="10"
+                  max="90"
+                  value={focusMinutes}
+                  onChange={(event) => setFocusMinutes(event.target.value)}
+                  disabled={focusMode !== TIMER_MODES.pomodoro}
+                />
+              </label>
+
+              <label>
+                Break minutes
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={breakMinutes}
+                  onChange={(event) => setBreakMinutes(event.target.value)}
+                  disabled={focusMode !== TIMER_MODES.pomodoro}
+                />
+              </label>
+            </div>
+
+            {activeSession ? (
+              <div className="focus-active-bar">
+                <p className="task-title">
+                  {activeSession.is_break ? 'Break Timer' : 'Focus Timer'} ({activeSession.status}):{' '}
+                  {activeRemainingSeconds !== null
+                    ? formatDuration(activeRemainingSeconds)
+                    : formatDuration(activeElapsedSeconds)}
+                </p>
+                <div className="task-actions">
+                  {activeSession.status === 'running' ? (
+                    <button type="button" className="ghost-action" onClick={handlePauseSession}>
+                      Pause
+                    </button>
+                  ) : (
+                    <button type="button" className="ghost-action" onClick={handleResumeSession}>
+                      Resume
+                    </button>
+                  )}
+                  <button type="button" className="ghost-action" onClick={handleCompleteSession}>
+                    Complete block
+                  </button>
+                  <button type="button" className="danger-btn" onClick={handleCancelSession}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="focus-links-row">
+              <Link to="/focus-history" className="ghost-link">
+                View session history
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <p className="message error">Run `supabase/014_task_focus.sql` to enable timer tracking.</p>
+        )}
+
         <form onSubmit={handleCreateTask} className="form-grid create-task-form">
           <label>
             Task title
@@ -402,6 +836,15 @@ export function TasksPage() {
                       <p className="task-title">{task.title}</p>
                       <p className="muted small-text">Priority {task.priority || 0}</p>
                       <p className="muted small-text">{formatDueDate(task.due_at)}</p>
+                      <p className="muted small-text">Focus logged: {focusByTaskId[task.id] || 0}m</p>
+                      <button
+                        type="button"
+                        className="ghost-action focus-task-btn"
+                        onClick={() => handleStartFocus(task.id)}
+                        disabled={Boolean(activeSession)}
+                      >
+                        Start focus
+                      </button>
                     </div>
 
                     <div className="task-actions">
