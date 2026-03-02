@@ -16,6 +16,17 @@ The goal is simple: convert daily actions into measurable progress using live da
 ![Mobile Auth](./life-os/docs/screenshots/mobile-auth.png)
 ![Mobile Compact Auth](./life-os/docs/screenshots/mobile-auth-compact.png)
 
+### Analytics Screens (Desktop)
+
+![Tasks Weekly Charts](./life-os/docs/screenshots/desktop-tasks-chart.png)
+![Fitness Progression Chart](./life-os/docs/screenshots/desktop-fitness-chart.png)
+![Finance Analytics Chart](./life-os/docs/screenshots/desktop-finance-chart.png)
+
+### Analytics Screens (Mobile)
+
+![Tasks Weekly Charts Mobile](./life-os/docs/screenshots/mobile-tasks-chart.png)
+![Finance Analytics Mobile](./life-os/docs/screenshots/mobile-finance-chart.png)
+
 ## What Life OS Does
 
 - Centralizes daily execution across tasks, goals, fitness, finance, and CRM
