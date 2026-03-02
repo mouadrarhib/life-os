@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { useAuth } from '../context/AuthContext.jsx'
 import { ensureNotificationPermission, notifyFocusEvent, playFocusChime } from '../lib/focusNotifications.js'
 import { calculateTaskXp, getLevelFromXp } from '../lib/gamification.js'
@@ -56,6 +68,25 @@ function getTodayStartIso() {
   const start = new Date()
   start.setHours(0, 0, 0, 0)
   return start.toISOString()
+}
+
+function getWeekStart(input) {
+  const date = new Date(input)
+  const day = (date.getDay() + 6) % 7
+  date.setDate(date.getDate() - day)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+function toWeekKey(input) {
+  return getWeekStart(input).toISOString().slice(0, 10)
+}
+
+function formatWeekLabel(weekKey) {
+  return new Date(weekKey).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 export function TasksPage() {
@@ -224,6 +255,71 @@ export function TasksPage() {
     const done = tasks.filter((task) => task.status === 'done').length
     return { total, todo, doing, done }
   }, [tasks])
+
+  const weeklyTaskStats = useMemo(() => {
+    const weekCount = 8
+    const bins = []
+    const map = {}
+    const cursor = getWeekStart(new Date())
+
+    cursor.setDate(cursor.getDate() - (weekCount - 1) * 7)
+
+    for (let i = 0; i < weekCount; i += 1) {
+      const weekStart = new Date(cursor)
+      weekStart.setDate(cursor.getDate() + i * 7)
+      const key = weekStart.toISOString().slice(0, 10)
+      const row = {
+        weekKey: key,
+        weekLabel: formatWeekLabel(key),
+        created: 0,
+        completed: 0,
+      }
+      bins.push(row)
+      map[key] = row
+    }
+
+    tasks.forEach((task) => {
+      const createdKey = toWeekKey(task.created_at)
+      if (map[createdKey]) {
+        map[createdKey].created += 1
+      }
+
+      if (task.done_at) {
+        const doneKey = toWeekKey(task.done_at)
+        if (map[doneKey]) {
+          map[doneKey].completed += 1
+        }
+      }
+    })
+
+    return bins.map((row) => ({
+      ...row,
+      completionRate:
+        row.created > 0 ? Math.round((row.completed / row.created) * 100) : row.completed > 0 ? 100 : 0,
+    }))
+  }, [tasks])
+
+  const thisWeekProgress = useMemo(() => {
+    if (weeklyTaskStats.length === 0) return { created: 0, completed: 0, completionRate: 0 }
+    const current = weeklyTaskStats[weeklyTaskStats.length - 1]
+    return {
+      created: current.created,
+      completed: current.completed,
+      completionRate: current.completionRate,
+    }
+  }, [weeklyTaskStats])
+
+  const bestWeek = useMemo(() => {
+    const ranked = weeklyTaskStats
+      .filter((week) => week.created > 0)
+      .sort((a, b) => {
+        if (b.completionRate !== a.completionRate) return b.completionRate - a.completionRate
+        return b.completed - a.completed
+      })
+
+    if (ranked.length === 0) return null
+    return ranked[0]
+  }, [weeklyTaskStats])
 
   const groupedTasks = useMemo(() => {
     return STATUS_OPTIONS.reduce((acc, status) => {
@@ -610,6 +706,64 @@ export function TasksPage() {
           <p className="muted small-text">Completed Blocks</p>
           <p className="stat-value">{focusStats.blocksToday}</p>
         </article>
+        <article className="stat-card">
+          <p className="muted small-text">This Week Completion</p>
+          <p className="stat-value">{thisWeekProgress.completionRate}%</p>
+        </article>
+      </section>
+
+      <section className="panel tasks-progress-panel">
+        <div className="goal-widget-head">
+          <p className="eyebrow">Weekly Task Progress</p>
+          <p className="muted small-text">Created vs completed tasks in the last 8 weeks</p>
+        </div>
+
+        <div className="tasks-progress-summary">
+          <p className="muted small-text">Created this week: {thisWeekProgress.created}</p>
+          <p className="muted small-text">Completed this week: {thisWeekProgress.completed}</p>
+          <p className="muted small-text">
+            Best week:{' '}
+            {bestWeek
+              ? `${bestWeek.weekLabel} (${bestWeek.completionRate}% with ${bestWeek.completed}/${bestWeek.created})`
+              : 'No completed week yet'}
+          </p>
+        </div>
+
+        <div className="tasks-progress-grid">
+          <div className="chart-shell">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={weeklyTaskStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                <XAxis dataKey="weekLabel" stroke="#475569" />
+                <YAxis stroke="#475569" />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="created" name="Created" fill="#0284c7" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="completed" name="Completed" fill="#0f766e" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="chart-shell">
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={weeklyTaskStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                <XAxis dataKey="weekLabel" stroke="#475569" />
+                <YAxis unit="%" domain={[0, 100]} stroke="#475569" />
+                <Tooltip formatter={(value) => `${value}%`} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="completionRate"
+                  name="Completion Rate"
+                  stroke="#ea580c"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </section>
 
       <section className="panel tasks-panel">

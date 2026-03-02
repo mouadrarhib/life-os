@@ -215,7 +215,24 @@ input:focus {
 }
 
 .tasks-stats-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.tasks-progress-panel {
+  width: min(100%, 900px);
+}
+
+.tasks-progress-summary {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.tasks-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
 .tasks-layout {
@@ -1533,6 +1550,10 @@ select {
 
   .focus-active-bar {
     display: grid;
+  }
+
+  .tasks-progress-grid {
+    grid-template-columns: 1fr;
   }
 
   .focus-history-filters {
